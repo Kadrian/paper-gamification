@@ -10,10 +10,12 @@ from watchdog.events import FileModifiedEvent
 
 class GamificationHandler(FileSystemEventHandler):
 	
-	def __init__(self, filename):
+	def __init__(self, filename, publish_path):
 		FileSystemEventHandler.__init__(self)
 
 		self.filename = filename
+		self.publish_path = publish_path 
+
 		self.stats = {}
 		# words = {"hello": 5, "no": 3}
 		self.words = {}
@@ -22,7 +24,7 @@ class GamificationHandler(FileSystemEventHandler):
 		if type(event) == FileModifiedEvent:
 			if os.path.abspath(self.filename) == event.src_path:
 				self.register_change()
-				self.do_gamification()
+				self.publish()
 
 	def register_change(self):
 		f = open(self.filename)
@@ -47,6 +49,7 @@ class GamificationHandler(FileSystemEventHandler):
 					self.words[word] += 1
 					# Count all words
 					num_words += 1
+		f.close()
 
 		# Determine Oxford coverage
 		oxford_coverage = self.get_coverage("./oxford.txt")
@@ -94,11 +97,16 @@ class GamificationHandler(FileSystemEventHandler):
 				num_words += 1
 			
 		hits = set(words).intersection(set(self.words.keys()))
+		f.close()
 		return { "total": num_words, "hits": list(hits)}
 
 
-	def do_gamification(self):
-		pass
+	def publish(self):
+		f = open("./stats.txt", "w")
+		f.write(str(self.stats));
+		f.close()
+		os.system("scp ./stats.txt " + self.publish_path)
+
 
 
 if __name__ == "__main__":
@@ -107,15 +115,15 @@ if __name__ == "__main__":
 	logging.basicConfig(level=logging.INFO,
 						format='%(asctime)s - %(message)s',
 						datefmt='%Y-%m-%d %H:%M:%S')
-	if len(sys.argv) != 2:
-		print "Please supply a file to be watched"
+	if len(sys.argv) != 3:
+		print "Usage: python tracker.py <file-to-be-watched> <scp-path-to-publish-to>"
 		sys.exit()
 
 	filename = sys.argv[1]
 	path = os.path.dirname(os.path.abspath(filename))
 
 	# Observer setup + start
-	event_handler = GamificationHandler(filename)
+	event_handler = GamificationHandler(filename, sys.argv[2])
 	observer = Observer()
 	observer.schedule(event_handler, path=path, recursive=True)
 	observer.start()
