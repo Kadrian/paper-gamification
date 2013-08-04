@@ -141,15 +141,13 @@ class GamificationHandler(FileSystemEventHandler):
 
 
 	def publish(self):
-		pass
-		# payload = {"stats" : json.dumps(self.stats)}
-		# r = requests.put(self.publish_url + "/papers/" + self.paper_id + ".json", params=payload)
+		payload = {"stats" : json.dumps(self.stats)}
+		r = requests.put(self.publish_url + "/papers/" + self.paper_id + ".json", params=payload)
 
 
 def set_paper_alive(publish_url, paper_id, alive):
-	pass
-	# payload = {"alive" : str(alive).lower()}
-	# r = requests.put(publish_url + "/papers/" + paper_id + ".json", params=payload)
+	payload = {"alive" : str(alive).lower()}
+	r = requests.put(publish_url + "/papers/" + paper_id + ".json", params=payload)
 
 
 if __name__ == "__main__":
