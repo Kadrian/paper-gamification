@@ -23,7 +23,6 @@ class GamificationHandler(FileSystemEventHandler):
 		self.paper_id = paper_id
 
 		self.stats = {}
-		# words = {"hello": 5, "no": 3}
 		self.words = {}
 
 	def on_modified(self, event):
@@ -42,16 +41,19 @@ class GamificationHandler(FileSystemEventHandler):
 			word_split = re.findall(r"[\w']+", line)
 			for w in word_split:
 				word = w.strip().lower()
+
 				# Determine average word length
 				if avg_len == 0:
 					avg_len = len(word)
 				else:	
 					avg_len += len(word)
 					avg_len /= 2.0
+
 				# Count distinct words with occurrences
 				if word not in self.words:
 					self.words[word] = 0
 				self.words[word] += 1
+				
 				# Count all words
 				num_words += 1
 		f.close()
@@ -89,14 +91,6 @@ class GamificationHandler(FileSystemEventHandler):
 
 		# Sort
 		#stats = sorted(words.iteritems(), key=operator.itemgetter(1), reverse=True)		
-
-		# Output
-		# top = 50
-		# for word, num in stats:
-		# 	if top <= 0:
-		# 		break
-		# 	print word + " : " + str(num)
-		# 	top -= 1
 
 		logging.info("Stats: " + str(self.stats))
 
