@@ -5,6 +5,7 @@ import operator
 import logging
 import requests
 import json
+import re
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -38,22 +39,21 @@ class GamificationHandler(FileSystemEventHandler):
 		num_words = 0
 
 		for line in f.readlines():
-			word_split = line.split(" ")
+			word_split = re.findall(r"[\w']+", line)
 			for w in word_split:
-				if w.strip() != "" and w.isalnum():
-					word = w.strip().lower()
-					# Determine average word length
-					if avg_len == 0:
-						avg_len = len(word)
-					else:	
-						avg_len += len(word)
-						avg_len /= 2.0
-					# Count distinct words with occurrences
-					if word not in self.words:
-						self.words[word] = 0
-					self.words[word] += 1
-					# Count all words
-					num_words += 1
+				word = w.strip().lower()
+				# Determine average word length
+				if avg_len == 0:
+					avg_len = len(word)
+				else:	
+					avg_len += len(word)
+					avg_len /= 2.0
+				# Count distinct words with occurrences
+				if word not in self.words:
+					self.words[word] = 0
+				self.words[word] += 1
+				# Count all words
+				num_words += 1
 		f.close()
 
 		# Determine Oxford coverage
@@ -82,6 +82,7 @@ class GamificationHandler(FileSystemEventHandler):
 				"words_total": awl_coverage["words_total"],
 				"words_hits": awl_coverage["words_hits"],
 				"category_total": awl_coverage["category_total"],
+				"category_num_hits": awl_coverage["category_num_hits"],
 				"category_hits": awl_coverage["category_hits"]
 			}
 		}
@@ -126,23 +127,33 @@ class GamificationHandler(FileSystemEventHandler):
 				category = word.strip()
 			words[word.strip()] = category
 
-		category_hits = set()
 		hits = set(words.keys()).intersection(set(self.words.keys()))
+
+		category_hits = {}
+		for category in set(words.values()):
+			category_hits[category] = 0
+
 		for hit in hits:
-			category_hits.add(words[hit])
+			category_hits[words[hit]] += 1
+
+		category_num_hits = 0
+		for key in category_hits.keys():
+			if category_hits[key] > 0:
+				category_num_hits += 1
 
 		return { 
 			"words_total": len(words), 
 			"words_hits": len(list(hits)), 
 			"category_total": len(list(set(words.values()))), 
-			"category_hits": len(category_hits)
+			"category_num_hits": category_num_hits,
+			"category_hits": category_hits
 		}
 
 
 
 	def publish(self):
 		payload = {"stats" : json.dumps(self.stats)}
-		r = requests.put(self.publish_url + "/papers/" + self.paper_id + ".json", params=payload)
+		r = requests.put(self.publish_url + "/papers/" + self.paper_id + ".json", data=payload)
 
 
 def set_paper_alive(publish_url, paper_id, alive):
