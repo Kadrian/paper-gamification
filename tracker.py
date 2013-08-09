@@ -32,11 +32,14 @@ class GamificationHandler(FileSystemEventHandler):
 				self.publish()
 
 	def calculate_statistics(self):
-		f = open(self.paper_filename)
-
+		# Reset values 
+		self.stats = {}
+		self.words = {}
 		avg_len = 0
 		num_words = 0
 		total_word_len = 0
+
+		f = open(self.paper_filename)
 
 		for line in f.readlines():
 			word_split = re.findall(r"[\w']+", line)
@@ -68,6 +71,7 @@ class GamificationHandler(FileSystemEventHandler):
 		# Determine academic word list coverage 
 		awl_coverage = self.get_awl_coverage("./awl.txt")
 
+		print self.words
 		# Build stats together
 		self.stats = {
 			"num_words" : num_words,
@@ -92,7 +96,6 @@ class GamificationHandler(FileSystemEventHandler):
 
 		# Sort
 		#stats = sorted(words.iteritems(), key=operator.itemgetter(1), reverse=True)		
-
 		logging.info("Stats: " + str(self.stats))
 
 
