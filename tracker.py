@@ -36,18 +36,16 @@ class GamificationHandler(FileSystemEventHandler):
 
 		avg_len = 0
 		num_words = 0
+		total_word_len = 0
 
 		for line in f.readlines():
 			word_split = re.findall(r"[\w']+", line)
 			for w in word_split:
 				word = w.strip().lower()
 
-				# Determine average word length
-				if avg_len == 0:
-					avg_len = len(word)
-				else:	
-					avg_len += len(word)
-					avg_len /= 2.0
+				# Add to total_word_len 
+				# to determine average word length later
+				total_word_len += len(word)
 
 				# Count distinct words with occurrences
 				if word not in self.words:
@@ -57,6 +55,9 @@ class GamificationHandler(FileSystemEventHandler):
 				# Count all words
 				num_words += 1
 		f.close()
+
+		# Determine average word length 
+		avg_len = float(total_word_len) / float(num_words)
 
 		# Determine Oxford coverage
 		oxford_coverage = self.get_coverage("./oxford.txt")
