@@ -6,6 +6,7 @@ import logging
 import requests
 import json
 import re
+import docx
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -24,43 +25,75 @@ class GamificationHandler(FileSystemEventHandler):
 
 		self.stats = {}
 		self.words = {}
+		self.num_words = 0
+		self.total_word_len = 0
+
 
 	def on_modified(self, event):
+		# MAIN CALLBACK - a file got modified
 		if type(event) == FileModifiedEvent:
 			if os.path.abspath(self.paper_filename) == event.src_path:
 				self.calculate_statistics()
 				self.publish()
 
-	def calculate_statistics(self):
-		# Reset values 
-		self.stats = {}
-		self.words = {}
-		avg_len = 0
-		num_words = 0
-		total_word_len = 0
 
+	def parse_text_statistics(self, text):
+		for w in text:
+			word = w.strip().lower()
+
+			# Add to total_word_len 
+			# to determine average word length later
+			self.total_word_len += len(word)
+
+			# Count distinct words with occurrences
+			if word not in self.words:
+				self.words[word] = 0
+			self.words[word] += 1
+			
+			# Count all words
+			self.num_words += 1
+
+
+	def parse_word_file(self):
+		# Read file
+		document = docx.opendocx(self.paper_filename)
+		text = " ".join(docx.getdocumenttext(document))
+		print text
+		word_split = re.findall(r"[\w']+", text)
+
+		# Analyse
+		self.parse_text_statistics(word_split)
+
+
+	def parse_text_file(self):
+		# Read file
 		f = open(self.paper_filename)
 
 		for line in f.readlines():
 			word_split = re.findall(r"[\w']+", line)
-			for w in word_split:
-				word = w.strip().lower()
+			# Analyse
+			self.parse_text_statistics(word_split)
 
-				# Add to total_word_len 
-				# to determine average word length later
-				total_word_len += len(word)
-
-				# Count distinct words with occurrences
-				if word not in self.words:
-					self.words[word] = 0
-				self.words[word] += 1
-				
-				# Count all words
-				num_words += 1
 		f.close()
 
+
+	def calculate_statistics(self):
+		# Reset values 
+		self.stats = {}
+		self.words = {}
+		self.num_words = 0
+		self.total_word_len = 0
+
+		# Parse file 
+		if self.paper_filename.endswith(".docx"):
+			self.parse_word_file()
+		else:
+			self.parse_text_file()
+
+		# By now, text-statistics should be saved in instance variables
+
 		# Determine average word length 
-		avg_len = float(total_word_len) / float(num_words)
+		avg_len = float(self.total_word_len) / float(self.num_words)
 
 		# Determine Oxford coverage
 		oxford_coverage = self.get_coverage("./oxford.txt")
@@ -71,10 +104,9 @@ class GamificationHandler(FileSystemEventHandler):
 		# Determine academic word list coverage 
 		awl_coverage = self.get_awl_coverage("./awl.txt")
 
-		print self.words
 		# Build stats together
 		self.stats = {
-			"num_words" : num_words,
+			"num_words" : self.num_words,
 			"different_words" : len(self.words),
 			"avg_len" : avg_len,
 			"oxford_coverage" : {
@@ -146,7 +178,6 @@ class GamificationHandler(FileSystemEventHandler):
 			"category_num_hits": category_num_hits,
 			"category_hits": category_hits
 		}
-
 
 
 	def publish(self):
