@@ -33,6 +33,7 @@ class GamificationHandler(FileSystemEventHandler):
 
 		self.stats = {}
 		self.words = {}
+		self.paragraphs = []
 		self.num_words = 0
 		self.total_word_len = 0
 
@@ -52,6 +53,28 @@ class GamificationHandler(FileSystemEventHandler):
 				logging.info("Publishing ...")
 				self.publish()
 				logging.info("Published!")
+
+
+	def parse_paragraphs(self, text):
+		# Will only work for markdown elements
+		# 	divided by '##' markers
+		oldline = ""
+		for line in text.split('\n'):
+			if line.startswith('## '):
+				if oldline != "":
+					# Count previous paragraph
+					paragraph = text.split(oldline)[1].split(line)[0]
+					self.count_paragraph_words(oldline, paragraph)
+				oldline = line
+		# Count last paragraph
+		if oldline != "":
+			paragraph = text.split(oldline)[1]
+			self.count_paragraph_words(oldline, paragraph)
+
+
+	def count_paragraph_words(self, line, paragraph):
+		num_words = len(re.findall(r"[\w']+", paragraph))
+		self.paragraphs.append((line.replace('#', '').strip(), num_words))
 
 
 	def parse_text_statistics(self, text):
@@ -75,6 +98,7 @@ class GamificationHandler(FileSystemEventHandler):
 		# Read file
 		document = docx.opendocx(self.paper_filename)
 		text = " ".join(docx.getdocumenttext(document))
+		self.parse_paragraphs(text)
 		word_split = re.findall(r"[\w']+", text)
 
 		# Analyse
@@ -85,18 +109,22 @@ class GamificationHandler(FileSystemEventHandler):
 		# Read file
 		f = open(self.paper_filename)
 
+		text = ""
 		for line in f.readlines():
+			text += line
 			word_split = re.findall(r"[\w']+", line)
 			# Analyse
 			self.parse_text_statistics(word_split)
 
 		f.close()
+		self.parse_paragraphs(text)
 
 
 	def calculate_statistics(self):
 		# Reset values 
 		self.stats = {}
 		self.words = {}
+		self.paragraphs = []
 		self.num_words = 0
 		self.total_word_len = 0
 
@@ -135,6 +163,7 @@ class GamificationHandler(FileSystemEventHandler):
 			"num_words" : self.num_words,
 			"different_words" : len(self.words),
 			"avg_len" : avg_len,
+			"paragraphs": self.paragraphs,
 			"interesting_words": interesting_words,
 			"oxford_coverage" : {
 				"total" : oxford_coverage["total"],
