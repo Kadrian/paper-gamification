@@ -7,10 +7,12 @@ import requests
 import json
 import re
 import docx
+import subprocess
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from watchdog.events import FileModifiedEvent
+from watchdog.events import FileCreatedEvent
 
 
 class GamificationHandler(FileSystemEventHandler):
@@ -37,6 +39,14 @@ class GamificationHandler(FileSystemEventHandler):
 		self.num_words = 0
 		self.total_word_len = 0
 
+	def on_created(self, event):
+		# MAIN CALLBACK - a file got created
+		logging.info("Create event occurred: " + event.src_path	)
+		if type(event) == FileCreatedEvent:
+			logging.info("A file was created: " + event.src_path)
+
+			self.analyze_file_event(event)
+
 
 	def on_modified(self, event):
 		# MAIN CALLBACK - a file got modified
@@ -44,32 +54,62 @@ class GamificationHandler(FileSystemEventHandler):
 		if type(event) == FileModifiedEvent:
 			logging.info("A file was modified: " + event.src_path)
 
-			paper_path = os.path.abspath(self.paper_filename)
-			logging.info("Checking if it was the paper: " + paper_path)
+			self.analyze_file_event(event)
 
-			if paper_path == event.src_path:
-				logging.info("Paper change detected, calculating statistics ...")
-				self.calculate_statistics()
-				logging.info("Publishing ...")
-				self.publish()
-				logging.info("Published!")
+
+	def analyze_file_event(self, event):
+		paper_path = os.path.abspath(self.paper_filename)
+		logging.info("Checking if it was the paper: " + paper_path)
+
+		if paper_path == event.src_path:
+			logging.info("Paper change detected, calculating statistics ...")
+			self.calculate_statistics()
+			logging.info("Publishing ...")
+			self.publish()
+			logging.info("Published!")
 
 
 	def parse_paragraphs(self, text):
 		# Will only work for markdown elements
 		# 	divided by '##' markers
-		oldline = ""
-		for line in text.split('\n'):
+		# 	or for latex like chapters, e.g. \n\n 2 Conclusion \n\n
+		is_markdown = False
+		is_latex = False
+
+		lines = text.split('\n')
+		for index, line in enumerate(lines):
 			if line.startswith('## '):
-				if oldline != "":
+				is_markdown = True
+				break
+			elif (re.match("^\d ", line.strip()) and
+					lines[index-1].strip() == "" and
+					lines[index+1].strip() == ""):
+				is_latex = True
+				break
+
+		if not (is_latex or is_markdown):
+			return
+
+		old_headline = ""
+		lines = text.split('\n')
+		for index, line in enumerate(lines):
+
+			# Check for a headline in either markdown or latex
+			if ( (is_markdown and line.startswith('## ')) or
+				 (is_latex and re.match("^\d ", line.strip()) and
+				    lines[index-1].strip() == "" and
+				    lines[index+1].strip() == "" ) ):
+
+				if old_headline != "":
 					# Count previous paragraph
-					paragraph = text.split(oldline)[1].split(line)[0]
-					self.count_paragraph_words(oldline, paragraph)
-				oldline = line
+					paragraph = text.split(old_headline)[1].split(line)[0]
+					self.count_paragraph_words(old_headline, paragraph)
+				old_headline = line
+
 		# Count last paragraph
-		if oldline != "":
-			paragraph = text.split(oldline)[1]
-			self.count_paragraph_words(oldline, paragraph)
+		if old_headline != "":
+			paragraph = text.split(old_headline)[1]
+			self.count_paragraph_words(old_headline, paragraph)
 
 
 	def count_paragraph_words(self, line, paragraph):
@@ -94,6 +134,17 @@ class GamificationHandler(FileSystemEventHandler):
 			self.num_words += 1
 
 
+	def parse_pdf_file(self):
+		# Convert pdf to txt
+		tmp_filename = "tmpExtracted.txt"
+		returnval = subprocess.call(["pdf2txt.py", "-o", tmp_filename, self.paper_filename])
+		if returnval == 0:
+			# Analyse plain text
+			logging.info("Successfully converted pdf to txt")
+			text = self.analyze_file(tmp_filename)
+			self.parse_paragraphs(text)
+
+
 	def parse_word_file(self):
 		# Read file
 		document = docx.opendocx(self.paper_filename)
@@ -106,9 +157,12 @@ class GamificationHandler(FileSystemEventHandler):
 
 
 	def parse_text_file(self):
-		# Read file
-		f = open(self.paper_filename)
+		text = self.analyze_file(self.paper_filename)
+		self.parse_paragraphs(text)
 
+
+	def analyze_file(self, filename):
+		f = open(filename)
 		text = ""
 		for line in f.readlines():
 			text += line
@@ -117,7 +171,7 @@ class GamificationHandler(FileSystemEventHandler):
 			self.parse_text_statistics(word_split)
 
 		f.close()
-		self.parse_paragraphs(text)
+		return text
 
 
 	def calculate_statistics(self):
@@ -131,8 +185,13 @@ class GamificationHandler(FileSystemEventHandler):
 		# Parse file 
 		logging.info("\tParsing the paper ...")
 		if self.paper_filename.endswith(".docx"):
+			logging.info("\t\tusing docx parser ...")
 			self.parse_word_file()
+		elif self.paper_filename.endswith(".pdf"):
+			logging.info("\t\tusing pdf parser ...")
+			self.parse_pdf_file()
 		else:
+			logging.info("\t\tusing txt parser ...")
 			self.parse_text_file()
 
 		# By now, text-statistics should be saved in instance variables
