@@ -20,9 +20,9 @@ Paper-gamification is a python script that watches a paper written in text forma
 Please install PDFMiner according to their setup instructions.
 Also, make sure their setup test works for you.
 
-4) Docx Parser - https://github.com/mikemaccana/python-docx
+4) Docx Parser - https://github.com/python-openxml/python-docx
 
-Please install Docx Parser according to their setup instructions
+```pip install python-docx```
 
 ## Usage
 

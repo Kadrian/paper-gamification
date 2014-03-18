@@ -25,12 +25,9 @@ class GamificationHandler(FileSystemEventHandler):
 		self.publish_url = publish_url
 		self.paper_id = paper_id
 
-		logging.info("Creating a GamificationHandler with paper: " +
-			paper_filename +
-			" publish_url: " +
-			publish_url +
-			" and paper id: " +
-			paper_id
+		logging.info("Creating a GamificationHandler with paper: " + paper_filename +
+			" publish_url: " + publish_url +
+			" and paper id: " + paper_id
 		)
 
 		self.stats = {}
@@ -72,9 +69,9 @@ class GamificationHandler(FileSystemEventHandler):
 	def parse_paragraphs(self, text):
 		# Will only work for markdown elements
 		# 	divided by '##' markers
-		# 	or for latex like chapters, e.g. \n\n 2 Conclusion \n\n
+		# 	or for pdf like chapters, e.g. \n\n 2 Conclusion \n\n
 		is_markdown = False
-		is_latex = False
+		is_pdf = False
 
 		lines = text.split('\n')
 		for index, line in enumerate(lines):
@@ -84,19 +81,19 @@ class GamificationHandler(FileSystemEventHandler):
 			elif (re.match("^\d ", line.strip()) and
 					lines[index-1].strip() == "" and
 					lines[index+1].strip() == ""):
-				is_latex = True
+				is_pdf = True
 				break
 
-		if not (is_latex or is_markdown):
+		if not (is_pdf or is_markdown):
 			return
 
 		old_headline = ""
 		lines = text.split('\n')
 		for index, line in enumerate(lines):
 
-			# Check for a headline in either markdown or latex
+			# Check for a headline in either markdown or pdf 
 			if ( (is_markdown and line.startswith('## ')) or
-				 (is_latex and re.match("^\d ", line.strip()) and
+				 (is_pdf and re.match("^\d ", line.strip()) and
 				    lines[index-1].strip() == "" and
 				    lines[index+1].strip() == "" ) ):
 
@@ -147,9 +144,11 @@ class GamificationHandler(FileSystemEventHandler):
 
 	def parse_word_file(self):
 		# Read file
-		document = docx.opendocx(self.paper_filename)
-		text = " ".join(docx.getdocumenttext(document))
-		self.parse_paragraphs(text)
+		document = docx.Document(self.paper_filename)
+		text = ""
+		for p in document.paragraphs:
+			text += p.text + '\n'
+
 		word_split = re.findall(r"[\w']+", text)
 
 		# Analyse
@@ -218,6 +217,7 @@ class GamificationHandler(FileSystemEventHandler):
 
 		# Build stats together
 		logging.info("\tBuilding stats together ...")
+		
 		self.stats = {
 			"num_words" : self.num_words,
 			"different_words" : len(self.words),
