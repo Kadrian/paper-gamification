@@ -60,10 +60,14 @@ class GamificationHandler(FileSystemEventHandler):
 
 		if paper_path == event.src_path:
 			logging.info("Paper change detected, calculating statistics ...")
-			self.calculate_statistics()
-			logging.info("Publishing ...")
-			self.publish()
-			logging.info("Published!")
+			self.analyze_paper()
+
+
+	def analyze_paper(self):
+		self.calculate_statistics()
+		logging.info("Publishing ...")
+		self.publish()
+		logging.info("Published!")
 
 
 	def parse_paragraphs(self, text):
@@ -365,6 +369,9 @@ if __name__ == "__main__":
 	# Observer start 
 	observer.start()
 	logging.info("Observer started.")
+
+	# Trigger an initial paper analysis
+	event_handler.analyze_paper()
 
 	try:
 		while True:
