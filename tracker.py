@@ -141,6 +141,7 @@ class GamificationHandler(FileSystemEventHandler):
 		self.pages = 0
 		for page in PDFPage.get_pages(fp):
 			self.pages += 1
+		fp.close()
 
 	def parse_pdf_file(self):
 		# Convert pdf to txt
