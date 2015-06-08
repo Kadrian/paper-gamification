@@ -14,6 +14,7 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.events import FileModifiedEvent
 from watchdog.events import FileCreatedEvent
 
+from pdfminer.pdfpage import PDFPage
 
 class GamificationHandler(FileSystemEventHandler):
 
@@ -35,6 +36,7 @@ class GamificationHandler(FileSystemEventHandler):
 		self.paragraphs = []
 		self.num_words = 0
 		self.total_word_len = 0
+		self.pages = None
 
 	def on_created(self, event):
 		# MAIN CALLBACK - a file got created
@@ -95,7 +97,7 @@ class GamificationHandler(FileSystemEventHandler):
 		lines = text.split('\n')
 		for index, line in enumerate(lines):
 
-			# Check for a headline in either markdown or pdf 
+			# Check for a headline in either markdown or pdf
 			if ( (is_markdown and line.startswith('## ')) or
 				 (is_pdf and re.match("^\d ", line.strip()) and
 				    lines[index-1].strip() == "" and
@@ -122,7 +124,7 @@ class GamificationHandler(FileSystemEventHandler):
 		for w in text:
 			word = w.strip().lower()
 
-			# Add to total_word_len 
+			# Add to total_word_len
 			# to determine average word length later
 			self.total_word_len += len(word)
 
@@ -134,6 +136,11 @@ class GamificationHandler(FileSystemEventHandler):
 			# Count all words
 			self.num_words += 1
 
+	def get_pages(self):
+		fp = open(self.paper_filename, 'rb')
+		self.pages = 0
+		for page in PDFPage.get_pages(fp):
+			self.pages += 1
 
 	def parse_pdf_file(self):
 		# Convert pdf to txt
@@ -144,6 +151,7 @@ class GamificationHandler(FileSystemEventHandler):
 			logging.info("Successfully converted pdf to txt")
 			text = self.analyze_file(tmp_filename)
 			self.parse_paragraphs(text)
+			self.get_pages()
 
 
 	def parse_word_file(self):
@@ -178,14 +186,14 @@ class GamificationHandler(FileSystemEventHandler):
 
 
 	def calculate_statistics(self):
-		# Reset values 
+		# Reset values
 		self.stats = {}
 		self.words = {}
 		self.paragraphs = []
 		self.num_words = 0
 		self.total_word_len = 0
 
-		# Parse file 
+		# Parse file
 		logging.info("\tParsing the paper ...")
 		if self.paper_filename.endswith(".docx"):
 			logging.info("\t\tusing docx parser ...")
@@ -203,7 +211,7 @@ class GamificationHandler(FileSystemEventHandler):
 		logging.info("\tCalculating interesting words ...")
 		interesting_words = self.get_interesting_words(40)
 
-		# Determine average word length 
+		# Determine average word length
 		logging.info("\tCalculating average word length ...")
 		avg_len = float(self.total_word_len) / float(self.num_words)
 
@@ -215,13 +223,13 @@ class GamificationHandler(FileSystemEventHandler):
 		logging.info("\tCalculating fancy words coverage ...")
 		fancy_coverage = self.get_coverage("./fancy.txt")
 
-		# Determine academic word list coverage 
+		# Determine academic word list coverage
 		logging.info("\tCalculating academic word list coverage ...")
 		awl_coverage = self.get_awl_coverage("./awl.txt")
 
 		# Build stats together
 		logging.info("\tBuilding stats together ...")
-		
+
 		self.stats = {
 			"num_words" : self.num_words,
 			"different_words" : len(self.words),
@@ -245,8 +253,11 @@ class GamificationHandler(FileSystemEventHandler):
 			}
 		}
 
+		if self.pages != None:
+			self.stats["pages"] = self.pages
+
 		# Sort
-		#stats = sorted(words.iteritems(), key=operator.itemgetter(1), reverse=True)		
+		#stats = sorted(words.iteritems(), key=operator.itemgetter(1), reverse=True)
 		logging.info("\tStats: " + str(self.stats))
 
 
@@ -366,7 +377,7 @@ if __name__ == "__main__":
 	observer = Observer()
 	logging.info("Starting observer with watch path: " + path)
 	observer.schedule(event_handler, path=path, recursive=True)
-	# Observer start 
+	# Observer start
 	observer.start()
 	logging.info("Observer started.")
 
