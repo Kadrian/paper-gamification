@@ -14,6 +14,7 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.events import FileModifiedEvent
 from watchdog.events import FileCreatedEvent
 
+from pdfminer.pdfpage import PDFPage
 
 class GamificationHandler(FileSystemEventHandler):
 
@@ -35,6 +36,7 @@ class GamificationHandler(FileSystemEventHandler):
 		self.paragraphs = []
 		self.num_words = 0
 		self.total_word_len = 0
+		self.pages = None
 
 	def on_created(self, event):
 		# MAIN CALLBACK - a file got created
@@ -134,6 +136,11 @@ class GamificationHandler(FileSystemEventHandler):
 			# Count all words
 			self.num_words += 1
 
+	def get_pages(self):
+		fp = open(self.paper_filename, 'rb')
+		self.pages = 0
+		for page in PDFPage.get_pages(fp):
+			self.pages += 1
 
 	def parse_pdf_file(self):
 		# Convert pdf to txt
@@ -144,6 +151,7 @@ class GamificationHandler(FileSystemEventHandler):
 			logging.info("Successfully converted pdf to txt")
 			text = self.analyze_file(tmp_filename)
 			self.parse_paragraphs(text)
+			self.get_pages()
 
 
 	def parse_word_file(self):
@@ -244,6 +252,9 @@ class GamificationHandler(FileSystemEventHandler):
 				"category_hits": awl_coverage["category_hits"]
 			}
 		}
+
+		if self.pages != None:
+			self.stats["pages"] = self.pages
 
 		# Sort
 		#stats = sorted(words.iteritems(), key=operator.itemgetter(1), reverse=True)
