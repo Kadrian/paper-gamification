@@ -7,22 +7,13 @@ Paper-gamification is a python script that watches a paper written in text forma
 
 ## Dependencies
 
+```pip install -r requirements.txt```
+
 1) Requests - http://docs.python-requests.org/en/latest/
-
-```pip install requests```
-
 2) Watchdog - http://pythonhosted.org/watchdog/
-
-```pip install watchdog```
-
 3) Latex support - https://github.com/euske/pdfminer/
-
-Please install PDFMiner according to their setup instructions.
-Also, make sure their setup test works for you.
-
 4) Docx Parser - https://github.com/python-openxml/python-docx
-
-```pip install python-docx```
+5) Natural Language Toolkit (NLTK) - http://www.nltk.org/
 
 ## Usage
 

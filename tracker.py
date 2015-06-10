@@ -16,6 +16,8 @@ from watchdog.events import FileCreatedEvent
 
 from pdfminer.pdfpage import PDFPage
 
+from nltk.stem import WordNetLemmatizer
+
 class GamificationHandler(FileSystemEventHandler):
 
     def __init__(self, paper_filename, publish_url, paper_id):
@@ -121,8 +123,9 @@ class GamificationHandler(FileSystemEventHandler):
 
 
     def parse_text_statistics(self, text):
+        wnl = WordNetLemmatizer()
         for w in text:
-            word = w.strip().lower()
+            word = wnl.lemmatize(w.strip().lower())
 
             # Add to total_word_len
             # to determine average word length later
