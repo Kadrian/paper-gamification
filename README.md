@@ -15,6 +15,14 @@ Paper-gamification is a python script that watches a paper written in text forma
 4) Docx Parser - https://github.com/python-openxml/python-docx
 5) Natural Language Toolkit (NLTK) - http://www.nltk.org/
 
+
+Then, use the nltk download tool to load the corpus `wordnet`
+```
+import nltk
+nltk.download()
+
+```
+
 ## Usage
 
 ```python tracker.py <paper-file> <publish-host> <paper-id>```
