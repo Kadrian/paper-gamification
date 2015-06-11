@@ -9,14 +9,16 @@ Paper-gamification is a python script that watches a paper written in text forma
 
 ```pip install -r requirements.txt```
 
-1) Requests - http://docs.python-requests.org/en/latest/
-2) Watchdog - http://pythonhosted.org/watchdog/
-3) Latex support - https://github.com/euske/pdfminer/
-4) Docx Parser - https://github.com/python-openxml/python-docx
-5) Natural Language Toolkit (NLTK) - http://www.nltk.org/
+Will automatically install the following:
 
+- Requests - http://docs.python-requests.org/en/latest/
+- Watchdog - http://pythonhosted.org/watchdog/
+- Latex support - https://github.com/euske/pdfminer/
+- Docx Parser - https://github.com/python-openxml/python-docx
+- Natural Language Toolkit (NLTK) - http://www.nltk.org/
 
-Then, use the nltk download tool to load the corpus `wordnet`
+Then, use the nltk download tool to load the corpus `wordnet`:
+
 ```
 import nltk
 nltk.download()
