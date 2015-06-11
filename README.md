@@ -22,7 +22,6 @@ Then, use the nltk download tool to load the corpus `wordnet`:
 ```
 import nltk
 nltk.download()
-
 ```
 
 ## Usage
