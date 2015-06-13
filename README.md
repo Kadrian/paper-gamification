@@ -5,6 +5,12 @@ A tool to help you write a paper.
 
 Paper-gamification is a python script that watches a paper written in text format and calculates text statistics as soon as you hit save.
 
+It currently supports:
+
+- Text or markdown
+- PDF
+- Docx (Microsoft Word)
+
 ## Dependencies
 
 ```pip install -r requirements.txt```
