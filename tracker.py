@@ -8,6 +8,7 @@ import json
 import re
 import docx
 import subprocess
+import codecs
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -15,6 +16,8 @@ from watchdog.events import FileModifiedEvent
 from watchdog.events import FileCreatedEvent
 
 from pdfminer.pdfpage import PDFPage
+from pdfminer.pdfparser import PDFParser
+from pdfminer.pdfdocument import PDFDocument
 
 from nltk.stem import WordNetLemmatizer
 
@@ -86,11 +89,23 @@ class GamificationHandler(FileSystemEventHandler):
             if line.startswith('## '):
                 is_markdown = True
                 break
-            elif (re.match("^\d ", line.strip()) and
-                    lines[index-1].strip() == "" and
-                    lines[index+1].strip() == ""):
-                is_pdf = True
-                break
+        if self.paper_filename.endswith('.pdf'):
+            is_pdf = True
+
+            headlines = []
+            with open(self.paper_filename, 'rb') as pdf:
+                parser = PDFParser(pdf)
+                document = PDFDocument(parser)
+
+                # Get the outlines of the document.
+                outlines = document.get_outlines()
+
+                for (level, title, _, _, _) in outlines:
+                    if level == 1:
+                        headlines.append(title)
+
+            compressed_headlines = list(h.replace(' ', '').lower()\
+                for h in headlines)
 
         if not (is_pdf or is_markdown):
             return
@@ -98,22 +113,28 @@ class GamificationHandler(FileSystemEventHandler):
         old_headline = ""
         lines = text.split('\n')
         for index, line in enumerate(lines):
-
+            compressed_line = line.replace(' ', '').lower()
             # Check for a headline in either markdown or pdf
             if ( (is_markdown and line.startswith('## ')) or
-                 (is_pdf and re.match("^\d ", line.strip()) and
+                (is_pdf and compressed_line in compressed_headlines and
                     lines[index-1].strip() == "" and
                     lines[index+1].strip() == "" ) ):
 
                 if old_headline != "":
                     # Count previous paragraph
                     paragraph = text.split(old_headline)[1].split(line)[0]
+                    if is_pdf:
+                        old_headline = headlines[compressed_headlines.index(
+                            old_headline.replace(' ', '').lower())]
                     self.count_paragraph_words(old_headline, paragraph)
                 old_headline = line
 
         # Count last paragraph
         if old_headline != "":
             paragraph = text.split(old_headline)[1]
+            if is_pdf:
+                old_headline = headlines[compressed_headlines.index(
+                    old_headline.replace(' ', '').lower())]
             self.count_paragraph_words(old_headline, paragraph)
 
 
@@ -177,7 +198,7 @@ class GamificationHandler(FileSystemEventHandler):
 
 
     def analyze_file(self, filename):
-        f = open(filename)
+        f = codecs.open(filename, "r", "utf-8")
         text = ""
         for line in f.readlines():
             text += line
