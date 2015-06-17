@@ -21,18 +21,20 @@ from nltk.stem import WordNetLemmatizer
 class GamificationHandler(FileSystemEventHandler):
 
     def __init__(self, paper_filename, publish_url, paper_id):
-
-        FileSystemEventHandler.__init__(self)
+        FileSystemEventHandler.__init__(self) # super init
 
         self.paper_filename = paper_filename
         self.publish_url = publish_url
         self.paper_id = paper_id
+
+        self.reset_stats()
 
         logging.info("Creating a GamificationHandler with paper: " + paper_filename +
             " publish_url: " + publish_url +
             " and paper id: " + paper_id
         )
 
+    def reset_stats(self):
         self.stats = {}
         self.words = {}
         self.paragraphs = []
@@ -48,7 +50,6 @@ class GamificationHandler(FileSystemEventHandler):
 
             self.analyze_file_event(event)
 
-
     def on_modified(self, event):
         # MAIN CALLBACK - a file got modified
         logging.info("Modify event occurred: " + event.src_path)
@@ -56,7 +57,6 @@ class GamificationHandler(FileSystemEventHandler):
             logging.info("A file was modified: " + event.src_path)
 
             self.analyze_file_event(event)
-
 
     def analyze_file_event(self, event):
         paper_path = os.path.abspath(self.paper_filename)
@@ -66,13 +66,11 @@ class GamificationHandler(FileSystemEventHandler):
             logging.info("Paper change detected, calculating statistics ...")
             self.analyze_paper()
 
-
     def analyze_paper(self):
         self.calculate_statistics()
         logging.info("Publishing ...")
         self.publish()
         logging.info("Published!")
-
 
     def parse_paragraphs(self, text):
         # Will only work for markdown elements
@@ -116,11 +114,9 @@ class GamificationHandler(FileSystemEventHandler):
             paragraph = text.split(old_headline)[1]
             self.count_paragraph_words(old_headline, paragraph)
 
-
     def count_paragraph_words(self, line, paragraph):
         num_words = len(re.findall(r"[\w']+", paragraph))
         self.paragraphs.append((line.replace('#', '').strip(), num_words))
-
 
     def parse_text_statistics(self, text):
         wnl = WordNetLemmatizer()
@@ -157,7 +153,6 @@ class GamificationHandler(FileSystemEventHandler):
             self.parse_paragraphs(text)
             self.get_pages()
 
-
     def parse_word_file(self):
         # Read file
         document = docx.Document(self.paper_filename)
@@ -170,11 +165,9 @@ class GamificationHandler(FileSystemEventHandler):
         # Analyse
         self.parse_text_statistics(word_split)
 
-
     def parse_text_file(self):
         text = self.analyze_file(self.paper_filename)
         self.parse_paragraphs(text)
-
 
     def analyze_file(self, filename):
         f = open(filename)
@@ -188,16 +181,7 @@ class GamificationHandler(FileSystemEventHandler):
         f.close()
         return text
 
-
-    def calculate_statistics(self):
-        # Reset values
-        self.stats = {}
-        self.words = {}
-        self.paragraphs = []
-        self.num_words = 0
-        self.total_word_len = 0
-
-        # Parse file
+    def parse_file(self):
         logging.info("\tParsing the paper ...")
         if self.paper_filename.endswith(".docx"):
             logging.info("\t\tusing docx parser ...")
@@ -208,6 +192,10 @@ class GamificationHandler(FileSystemEventHandler):
         else:
             logging.info("\t\tusing txt parser ...")
             self.parse_text_file()
+
+    def calculate_statistics(self):
+        self.reset_stats()
+        self.parse_file()
 
         # By now, text-statistics should be saved in instance variables
 
@@ -260,10 +248,7 @@ class GamificationHandler(FileSystemEventHandler):
         if self.pages != None:
             self.stats["pages"] = self.pages
 
-        # Sort
-        #stats = sorted(words.iteritems(), key=operator.itemgetter(1), reverse=True)
         logging.info("\tStats: " + str(self.stats))
-
 
     def get_interesting_words(self, num):
         sorted_words = sorted(self.words.iteritems(), key=operator.itemgetter(1), reverse=True)
@@ -298,7 +283,6 @@ class GamificationHandler(FileSystemEventHandler):
         interesting_words = sorted(interesting_words, key=operator.itemgetter(1), reverse=True)
         return interesting_words
 
-
     def get_coverage(self, filename):
         """ Reads a list of words and compares it to the own words"""
         words = []
@@ -309,11 +293,11 @@ class GamificationHandler(FileSystemEventHandler):
             if word.strip() != "":
                 words.append(word.strip().lower())
                 num_words += 1
+        f.close()
 
         hits = set(words).intersection(set(self.words.keys()))
-        f.close()
-        return { "total": num_words, "hits": list(hits)}
 
+        return { "total": num_words, "hits": list(hits)}
 
     def get_awl_coverage(self, filename):
         words = {}
@@ -346,7 +330,6 @@ class GamificationHandler(FileSystemEventHandler):
             "category_num_hits": category_num_hits,
             "category_hits": category_hits
         }
-
 
     def publish(self):
         payload = {"stats" : json.dumps(self.stats)}
