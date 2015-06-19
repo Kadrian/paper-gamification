@@ -18,6 +18,7 @@ from watchdog.events import FileCreatedEvent
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
 from pdfminer.pdfdocument import PDFDocument
+from pdfminer.pdfdocument import PDFNoOutlines
 
 from nltk.stem import WordNetLemmatizer
 
@@ -27,6 +28,8 @@ class GamificationHandler(FileSystemEventHandler):
         FileSystemEventHandler.__init__(self) # super init
 
         self.paper_filename = paper_filename
+        self.is_pdf = paper_filename.endswith('pdf')
+
         self.publish_url = publish_url
         self.paper_id = paper_id
 
@@ -70,6 +73,8 @@ class GamificationHandler(FileSystemEventHandler):
             self.analyze_paper()
 
     def analyze_paper(self):
+        self.reset_stats()
+        self.parse_file()
         self.calculate_statistics()
         logging.info("Publishing ...")
         self.publish()
@@ -79,60 +84,53 @@ class GamificationHandler(FileSystemEventHandler):
         # Will only work for markdown elements
         #   divided by '##' markers
         #   or for pdf like chapters, e.g. \n\n 2 Conclusion \n\n
-        is_markdown = False
-        is_pdf = False
-
         lines = text.split('\n')
-        for index, line in enumerate(lines):
-            if line.startswith('## '):
-                is_markdown = True
-                break
-        if self.paper_filename.endswith('.pdf'):
-            is_pdf = True
+        headlines = []
 
-            headlines = []
+        if self.is_pdf:
             with open(self.paper_filename, 'rb') as pdf:
                 parser = PDFParser(pdf)
                 document = PDFDocument(parser)
 
-                # Get the outlines of the document.
-                outlines = document.get_outlines()
+                try:
+                    outlines = document.get_outlines()
+                    for (level, title, _, _, _) in outlines:
+                        if level == 1:
+                            headlines.append(title)
+                except PDFNoOutlines:
+                    logging.info("No outline found -> skipping paragraph search...")
+        else: # check markdown headlines
+            for index, line in enumerate(lines):
+                if line.startswith('## '):
+                    headlines.append(line)
 
-                for (level, title, _, _, _) in outlines:
-                    if level == 1:
-                        headlines.append(title)
+        if len(headlines) > 0:
+            self.count_paragraphs(text, lines, headlines)
 
-            compressed_headlines = list(h.replace(' ', '').lower()\
-                for h in headlines)
+    def compress_line(self, line):
+        return line.replace(' ', '').lower()
 
-        if not (is_pdf or is_markdown):
-            return
-
+    def count_paragraphs(self, text, lines, headlines):
         old_headline = ""
-        lines = text.split('\n')
-        for index, line in enumerate(lines):
-            compressed_line = line.replace(' ', '').lower()
-            # Check for a headline in either markdown or pdf
-            if ( (is_markdown and line.startswith('## ')) or
-                (is_pdf and compressed_line in compressed_headlines and
-                    lines[index-1].strip() == "" and
-                    lines[index+1].strip() == "" ) ):
+        compressed_headlines = list(self.compress_line(h) for h in headlines)
 
+        for line in lines:
+            compressed_line = self.compress_line(line)
+
+            if line in headlines or compressed_line in compressed_headlines:
                 if old_headline != "":
                     # Count previous paragraph
                     paragraph = text.split(old_headline)[1].split(line)[0]
-                    if is_pdf:
-                        old_headline = headlines[compressed_headlines.index(
-                            old_headline.replace(' ', '').lower())]
+                    if self.is_pdf:
+                        old_headline = headlines[compressed_headlines.index(compressed_line) - 1]
                     self.count_paragraph_words(old_headline, paragraph)
                 old_headline = line
 
         # Count last paragraph
         if old_headline != "":
             paragraph = text.split(old_headline)[1]
-            if is_pdf:
-                old_headline = headlines[compressed_headlines.index(
-                    old_headline.replace(' ', '').lower())]
+            if self.is_pdf:
+                old_headline = headlines[-1]
             self.count_paragraph_words(old_headline, paragraph)
 
     def count_paragraph_words(self, line, paragraph):
@@ -166,12 +164,15 @@ class GamificationHandler(FileSystemEventHandler):
     def parse_pdf_file(self):
         # Convert pdf to txt
         tmp_filename = "tmpExtracted.txt"
-        returnval = subprocess.call(["pdf2txt.py", "-o", tmp_filename, self.paper_filename])
-        if returnval == 0:
+        pdf_convert_exit_id = subprocess.call(["pdf2txt.py", "-o", tmp_filename, self.paper_filename])
+        if pdf_convert_exit_id == 0:
+            logging.info("\t\t\tSuccessfully converted pdf to txt")
             # Analyse plain text
-            logging.info("Successfully converted pdf to txt")
+            logging.info("\t\t\tAnalyzing file")
             text = self.analyze_file(tmp_filename)
+            logging.info("\t\t\tParsing paragraphs ...")
             self.parse_paragraphs(text)
+            logging.info("\t\t\tGetting pages ...")
             self.get_pages()
 
     def parse_word_file(self):
@@ -215,9 +216,6 @@ class GamificationHandler(FileSystemEventHandler):
             self.parse_text_file()
 
     def calculate_statistics(self):
-        self.reset_stats()
-        self.parse_file()
-
         # By now, text-statistics should be saved in instance variables
 
         # Determine interesting words
