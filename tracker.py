@@ -22,10 +22,11 @@ from pdfminer.pdfdocument import PDFNoOutlines
 
 from nltk.stem import WordNetLemmatizer
 
+
 class GamificationHandler(FileSystemEventHandler):
 
     def __init__(self, paper_filename, publish_url, paper_id):
-        FileSystemEventHandler.__init__(self) # super init
+        FileSystemEventHandler.__init__(self)  # super init
 
         self.paper_filename = paper_filename
         self.is_pdf = paper_filename.endswith('pdf')
@@ -35,7 +36,8 @@ class GamificationHandler(FileSystemEventHandler):
 
         self.reset_stats()
 
-        logging.info("Creating a GamificationHandler with paper: " + paper_filename +
+        logging.info(
+            "Creating a GamificationHandler with paper: " + paper_filename +
             " publish_url: " + publish_url +
             " and paper id: " + paper_id
         )
@@ -50,7 +52,7 @@ class GamificationHandler(FileSystemEventHandler):
 
     def on_created(self, event):
         # MAIN CALLBACK - a file got created
-        logging.info("Create event occurred: " + event.src_path )
+        logging.info("Create event occurred: " + event.src_path)
         if type(event) == FileCreatedEvent:
             logging.info("A file was created: " + event.src_path)
 
@@ -98,8 +100,10 @@ class GamificationHandler(FileSystemEventHandler):
                         if level == 1:
                             headlines.append(title)
                 except PDFNoOutlines:
-                    logging.info("No outline found -> skipping paragraph search...")
-        else: # check markdown headlines
+                    logging.info(
+                        "No outline found -> skipping paragraph search..."
+                    )
+        else:  # check markdown headlines
             for index, line in enumerate(lines):
                 if line.startswith('## '):
                     headlines.append(line)
@@ -122,7 +126,9 @@ class GamificationHandler(FileSystemEventHandler):
                     # Count previous paragraph
                     paragraph = text.split(old_headline)[1].split(line)[0]
                     if self.is_pdf:
-                        old_headline = headlines[compressed_headlines.index(compressed_line) - 1]
+                        old_headline = headlines[
+                            compressed_headlines.index(compressed_line) - 1
+                        ]
                     self.count_paragraph_words(old_headline, paragraph)
                 old_headline = line
 
@@ -164,7 +170,9 @@ class GamificationHandler(FileSystemEventHandler):
     def parse_pdf_file(self):
         # Convert pdf to txt
         tmp_filename = "tmpExtracted.txt"
-        pdf_convert_exit_id = subprocess.call(["pdf2txt.py", "-o", tmp_filename, self.paper_filename])
+        pdf_convert_exit_id = subprocess.call(
+            ["pdf2txt.py", "-o", tmp_filename, self.paper_filename]
+        )
         if pdf_convert_exit_id == 0:
             logging.info("\t\t\tSuccessfully converted pdf to txt")
             # Analyse plain text
@@ -242,20 +250,20 @@ class GamificationHandler(FileSystemEventHandler):
         logging.info("\tBuilding stats together ...")
 
         self.stats = {
-            "num_words" : self.num_words,
-            "different_words" : len(self.words),
-            "avg_len" : avg_len,
+            "num_words": self.num_words,
+            "different_words": len(self.words),
+            "avg_len": avg_len,
             "paragraphs": self.paragraphs,
             "interesting_words": interesting_words,
-            "oxford_coverage" : {
-                "total" : oxford_coverage["total"],
+            "oxford_coverage": {
+                "total": oxford_coverage["total"],
                 "num_hits": len(oxford_coverage["hits"])
             },
-            "fancy_coverage" : {
-                "total" : fancy_coverage["total"],
+            "fancy_coverage": {
+                "total": fancy_coverage["total"],
                 "num_hits": len(fancy_coverage["hits"])
             },
-            "awl_coverage" : {
+            "awl_coverage": {
                 "words_total": awl_coverage["words_total"],
                 "words_hits": awl_coverage["words_hits"],
                 "category_total": awl_coverage["category_total"],
@@ -264,19 +272,22 @@ class GamificationHandler(FileSystemEventHandler):
             }
         }
 
-        if self.pages != None:
+        if self.pages is not None:
             self.stats["pages"] = self.pages
 
         logging.info("\tStats: " + str(self.stats))
 
     def get_interesting_words(self, num):
-        sorted_words = sorted(self.words.iteritems(), key=operator.itemgetter(1), reverse=True)
+        sorted_words = sorted(
+            self.words.iteritems(), key=operator.itemgetter(1), reverse=True
+        )
         interesting_words = []
 
         num = min(num, len(sorted_words))
         min_len = 10
 
-        while len(interesting_words) != num: # As long as we don't have as many words as we want
+        while len(interesting_words) != num:
+            # As long as we don't have as many words as we want
             for word in sorted_words:
                 if len(word[0]) >= min_len:
                     if word[1] == 1:
@@ -290,7 +301,9 @@ class GamificationHandler(FileSystemEventHandler):
                     # Got enough words, break will break both loops
                     break
             min_len -= 1
-            if min_len < 2: # Text contains really few words, we just have to add them, until we have enough
+            if min_len < 2:
+                # Text contains really few words, we just have to add them
+                #  until we have enough
                 for word in sorted_words:
                     if word not in interesting_words:
                         interesting_words.append(word)
@@ -299,7 +312,9 @@ class GamificationHandler(FileSystemEventHandler):
                             break
 
         # Sort result and return
-        interesting_words = sorted(interesting_words, key=operator.itemgetter(1), reverse=True)
+        interesting_words = sorted(
+            interesting_words, key=operator.itemgetter(1), reverse=True
+        )
         return interesting_words
 
     def get_coverage(self, filename):
@@ -316,7 +331,7 @@ class GamificationHandler(FileSystemEventHandler):
 
         hits = set(words).intersection(set(self.words.keys()))
 
-        return { "total": num_words, "hits": list(hits)}
+        return {"total": num_words, "hits": list(hits)}
 
     def get_awl_coverage(self, filename):
         words = {}
@@ -351,13 +366,19 @@ class GamificationHandler(FileSystemEventHandler):
         }
 
     def publish(self):
-        payload = {"stats" : json.dumps(self.stats)}
-        r = requests.put(self.publish_url + "/papers/" + self.paper_id + ".json", data=payload)
+        payload = {"stats": json.dumps(self.stats)}
+        requests.put(
+            self.publish_url + "/papers/" + self.paper_id + ".json",
+            data=payload
+        )
 
 
 def set_paper_alive(publish_url, paper_id, alive):
-    payload = {"alive" : str(alive).lower()}
-    r = requests.put(publish_url + "/papers/" + paper_id + ".json", params=payload)
+    payload = {"alive": str(alive).lower()}
+    requests.put(
+        publish_url + "/papers/" + paper_id + ".json",
+        params=payload
+    )
 
 
 if __name__ == "__main__":
@@ -376,7 +397,7 @@ if __name__ == "__main__":
     path = os.path.dirname(os.path.abspath(filename))
 
     # Enable "Currently writing..."
-    set_paper_alive(publish_url, paper_id, True);
+    set_paper_alive(publish_url, paper_id, True)
 
     # Observer setup
     event_handler = GamificationHandler(filename, publish_url, paper_id)
@@ -395,6 +416,6 @@ if __name__ == "__main__":
             time.sleep(1)
     except KeyboardInterrupt:
         # Disable "Currently writing..."
-        set_paper_alive(publish_url, paper_id, False);
+        set_paper_alive(publish_url, paper_id, False)
         observer.stop()
         observer.join()
